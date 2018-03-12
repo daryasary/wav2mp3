@@ -8,7 +8,11 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
+	"sync"
+	"flag"
 )
+
+var wg sync.WaitGroup
 
 func ConvertToMP3(filenames ...string) error {
 	var toFilename string
@@ -39,25 +43,28 @@ func TouchEmptyWav(filename string)error{
 }
 
 func main(){
-	soundsDir := "wav"
+	soundsDir := flag.String("dir", "", "Parent directory of wav files")
+	workersCount := flag.Int("worker", 3, "Number of go concurrent workers")
+	flag.Parse()
 
-	fileList := make(chan string, 100)
-	done := make(chan bool)
+	if *soundsDir == ""{
+		panic("No directory entered")
+	}
+	fileList := make(chan string)
+
 	var found int
 
-
-	for i:=1; i<=3; i++{
-		go convertWorker(i, fileList, done)
+	for i:=1; i<=*workersCount; i++{
+		wg.Add(1)
+		go convertWorker(i, fileList)
 	}
 
-	//fileList := []string{}
-	filepath.Walk(soundsDir, func(path string, f os.FileInfo, err error) error {
+	filepath.Walk(*soundsDir, func(path string, f os.FileInfo, err error) error {
 		if !f.IsDir(){
 			r, err := regexp.MatchString(".wav", f.Name())
 			if err == nil && r {
 				info, err := os.Stat(path)
 				if err == nil && info.Size() > 0{
-					//fileList = append(fileList, path)
 					found ++
 					fileList <- path
 				}
@@ -68,12 +75,12 @@ func main(){
 	close(fileList)
 
 	fmt.Printf("%d wav files found in working directory\n", found)
-	for a := 0; a < found; a++ {
-		<-done
-	}
+	wg.Wait()
+	fmt.Println("Convertion Done")
 }
 
-func convertWorker(id int, fileList <-chan string, done chan<- bool){
+func convertWorker(id int, fileList <-chan string){
+	defer wg.Done()
 	for file := range fileList {
 		fmt.Println("Worker #", id, "grabbed", file)
 		//Extract file name
@@ -87,6 +94,5 @@ func convertWorker(id int, fileList <-chan string, done chan<- bool){
 			}
 			fmt.Printf("Convert %s completed, Truncate completed\n", file)
 		}
-		done <- true
 	}
 }
