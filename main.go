@@ -41,33 +41,52 @@ func TouchEmptyWav(filename string)error{
 func main(){
 	soundsDir := "wav"
 
-	fileList := []string{}
+	fileList := make(chan string, 100)
+	done := make(chan bool)
+	var found int
+
+
+	for i:=1; i<=3; i++{
+		go convertWorker(i, fileList, done)
+	}
+
+	//fileList := []string{}
 	filepath.Walk(soundsDir, func(path string, f os.FileInfo, err error) error {
 		if !f.IsDir(){
 			r, err := regexp.MatchString(".wav", f.Name())
 			if err == nil && r {
 				info, err := os.Stat(path)
 				if err == nil && info.Size() > 0{
-					fileList = append(fileList, path)
+					//fileList = append(fileList, path)
+					found ++
+					fileList <- path
 				}
 			}
 		}
-
 		return nil
 	})
+	close(fileList)
 
-	for _, file := range fileList {
-		fmt.Println(file)
-		 //Extract file name
+	fmt.Printf("%d wav files found in working directory\n", found)
+	for a := 0; a < found; a++ {
+		<-done
+	}
+}
+
+func convertWorker(id int, fileList <-chan string, done chan<- bool){
+	for file := range fileList {
+		fmt.Println("Worker #", id, "grabbed", file)
+		//Extract file name
 		splits := strings.Split(file, ".wav")
 		err := ConvertToMP3(file, splits[0])
-		if err != nil{
+		if err != nil {
 			fmt.Println("Convert error", file, err)
-		} else{
-			if err := TouchEmptyWav(file); err != nil{
+		} else {
+			if err := TouchEmptyWav(file); err != nil {
 				fmt.Printf("Convert %s completed, Truncate encountered error :%s\n", file, err)
 			}
 			fmt.Printf("Convert %s completed, Truncate completed\n", file)
 		}
+		done <- true
 	}
 }
