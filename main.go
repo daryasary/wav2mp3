@@ -90,8 +90,9 @@ func convertWorker(id int, fileList <-chan string){
 		} else {
 			if err := TouchEmptyWav(file); err != nil {
 				fmt.Printf("Worker #%d >> Convert completed, Truncate encountered error. file:%s, error:%s\n", id, file, err)
+			} else {
+				fmt.Printf("Worker #%d >> Convert completed, Truncate completed, file:%s \n", id, file)
 			}
-			fmt.Printf("Worker #%d >> Convert completed, Truncate completed, file:%s \n", id, file)
 		}
 	}
 }
