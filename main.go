@@ -74,25 +74,24 @@ func main(){
 	})
 	close(fileList)
 
-	fmt.Printf("%d wav files found in working directory\n", found)
 	wg.Wait()
-	fmt.Println("Convertion Done")
+	fmt.Printf("Convertion Done, %d wav files found in working directory\n", found)
 }
 
 func convertWorker(id int, fileList <-chan string){
 	defer wg.Done()
 	for file := range fileList {
-		fmt.Println("Worker #", id, "grabbed", file)
+		//fmt.Println("Worker #", id, "grabbed", file)
 		//Extract file name
 		splits := strings.Split(file, ".wav")
 		err := ConvertToMP3(file, splits[0])
 		if err != nil {
-			fmt.Println("Convert error", file, err)
+			fmt.Printf("Worker #%d >> Convert error !! file: %s, error:%s  \n", id, file, err)
 		} else {
 			if err := TouchEmptyWav(file); err != nil {
-				fmt.Printf("Convert %s completed, Truncate encountered error :%s\n", file, err)
+				fmt.Printf("Worker #%d >> Convert completed, Truncate encountered error. file:%s, error:%s\n", id, file, err)
 			}
-			fmt.Printf("Convert %s completed, Truncate completed\n", file)
+			fmt.Printf("Worker #%d >> Convert completed, Truncate completed, file:%s \n", id, file)
 		}
 	}
 }
